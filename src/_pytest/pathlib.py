@@ -524,6 +524,21 @@ def import_path(
     if mode is ImportMode.importlib:
         module_name = module_name_from_path(path, root)
 
+        # PYIMP-001 / PYIMP-002 / PYIMP-003 pseudocode -- canonical-module guard:
+        # INPUT: module_name derived for the path collected in importlib mode.
+        # canonical_module := sys.modules.get(module_name)
+        # IF canonical_module exists:
+        #     PYIMP-001: select canonical_module as the collected module result,
+        #                preserving exact object identity.
+        #     PYIMP-002: leave sys.modules[module_name] unchanged; do not resolve a
+        #                replacement spec, create a duplicate, or execute the path.
+        #     PYIMP-003: preserve canonical_module.__dict__ and the state reachable
+        #                from it so later imports observe the initialized values.
+        #     RETURN canonical_module.
+        # ELSE:
+        #     continue with spec discovery, module creation, registration, and
+        #     execution below; propagate the existing missing-spec/import failures.
+
         for meta_importer in sys.meta_path:
             spec = meta_importer.find_spec(module_name, [str(path.parent)])
             if spec is not None:
