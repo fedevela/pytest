@@ -150,6 +150,17 @@ class AssertionRewritingHook(importlib.abc.MetaPathFinder, importlib.abc.Loader)
 
         cache_name = fn.name[:-3] + PYC_TAIL
         pyc = cache_dir / cache_name
+        # Numeric-leading module import and selection pseudocode:
+        # - GUID: ARW-006: Resolve the discovered test module through the normal
+        #   assertion-rewriting loader; on a cache miss, parse and rewrite its
+        #   source, and on a cache hit, reuse only the valid rewritten code.
+        # - Execute the resulting code in the module namespace so collection can
+        #   enumerate its tests. Hand the collected items to the existing -k
+        #   selection path; if the requested test matches, retain it for normal
+        #   execution without changing keyword-matching semantics.
+        # - Failure path: If numeric-leading source cannot complete rewriting,
+        #   do not produce or execute a partial code object and do not proceed to
+        #   selection; propagate the rewrite/import failure as a collection error.
         # Notice that even if we're in a read-only directory, I'm going
         # to check for a cached pyc. This may not be optimal...
         co = _read_pyc(fn, pyc, state.trace)
@@ -683,6 +694,22 @@ class AssertionRewriter(ast.NodeVisitor):
         # - Failure guard: Never pass a non-string expression value to marker
         #   inspection; every valid non-string-leading module follows the normal
         #   rewrite path rather than failing during classification.
+        # Numeric-leading collection pseudocode:
+        # - GUID: ARW-002: If the first statement is an integer expression,
+        #   classify it as a non-docstring, keep position zero as the insertion
+        #   point, and never perform string membership testing on its value.
+        # - Insert the rewrite imports before that expression, traverse and
+        #   rewrite every assertion, and leave the transformed module ready for
+        #   the loader to compile, import, and expose to collection.
+        # - Failure path: A valid integer-leading module must not transition to
+        #   rewrite-disabled or raise an internal TypeError during classification;
+        #   only ordinary parse, compile, import, or collection failures continue
+        #   through their existing error paths.
+        # Regression-boundary pseudocode:
+        # - GUID: ARW-007: Preserve the existing empty-module, genuine-docstring,
+        #   __future__-import, import-insertion, and assertion-traversal branches.
+        #   Numeric-leading classification changes no downstream AST traversal or
+        #   collection behavior for any other valid module shape.
         doc = getattr(mod, "docstring", None)
         expect_docstring = doc is None
         if doc is not None and self.is_rewrite_disabled(doc):
