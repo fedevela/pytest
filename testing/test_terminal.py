@@ -485,6 +485,51 @@ class TestFixtureReporting:
         )
 
 
+class TestEXCSTR005FailureReportFormattingOutsideRaisesContextStr:
+    """GUID: EXCSTR-005."""
+
+    def test_existing_pytest_failure_report_preserves_observable_formatting(
+        self, testdir
+    ):
+        testdir.makeconftest(
+            """
+            import pytest
+
+            from _pytest._code.code import ExceptionInfo
+
+            def unexpected_str(self):
+                raise AssertionError("failure reporting called ExceptionInfo.__str__")
+
+            @pytest.fixture(autouse=True)
+            def prohibit_excinfo_str(monkeypatch):
+                monkeypatch.setattr(ExceptionInfo, "__str__", unexpected_str)
+            """
+        )
+        testdir.makepyfile(
+            test_excstr005_failure="""
+            def test_failure_report_contract():
+                raise RuntimeError("EXCSTR-005 failure-report message")
+            """
+        )
+
+        result = testdir.runpytest("-rf")
+
+        assert result.ret == 1
+        result.stdout.fnmatch_lines(
+            [
+                "*= FAILURES =*",
+                "*_ test_failure_report_contract _*",
+                "    def test_failure_report_contract():",
+                '>       raise RuntimeError("EXCSTR-005 failure-report message")',
+                "E       RuntimeError: EXCSTR-005 failure-report message",
+                "*test_excstr005_failure.py:2: RuntimeError*",
+                "*= short test summary info =*",
+                "FAILED *test_excstr005_failure.py::test_failure_report_contract*",
+                "*= 1 failed in *",
+            ]
+        )
+
+
 class TestTerminalFunctional:
     def test_deselected(self, testdir):
         testpath = testdir.makepyfile(

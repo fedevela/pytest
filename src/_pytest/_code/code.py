@@ -411,7 +411,10 @@ class ExceptionInfo:
     def for_later(cls):
         """return an unfilled ExceptionInfo
         """
-        return cls(None)
+        excinfo = cls(None)
+        # The context-manager form exposes the captured exception message via str().
+        excinfo._is_raises_context = True
+        return excinfo
 
     @property
     def type(self):
@@ -537,9 +540,9 @@ class ExceptionInfo:
     def __str__(self):
         if self._excinfo is None:
             return repr(self)
-        entry = self.traceback[-1]
-        loc = ReprFileLocation(entry.path, entry.lineno + 1, self.exconly())
-        return str(loc)
+        if getattr(self, "_is_raises_context", False):
+            return str(self.value)
+        return repr(self)
 
     def match(self, regexp):
         """
@@ -761,7 +764,6 @@ class FormattedExcinfo:
         return traceback, extraline
 
     def repr_excinfo(self, excinfo):
-
         repr_chain = []
         e = excinfo.value
         descr = None

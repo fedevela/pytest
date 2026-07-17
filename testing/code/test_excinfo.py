@@ -339,12 +339,113 @@ def test_excinfo_repr():
     assert s == "<ExceptionInfo ValueError tblen=4>"
 
 
-def test_excinfo_str():
-    excinfo = pytest.raises(ValueError, h)
-    s = str(excinfo)
-    assert s.startswith(__file__[:-9])  # pyc file and $py.class
-    assert s.endswith("ValueError")
-    assert len(s.split(":")) >= 3  # on windows it's 4
+# GUID: EXCSTR-001, EXCSTR-002 -- post-capture verification seam.
+class TestEXCSTR001AfterRaisesCapture:
+    """GUID: EXCSTR-001."""
+
+    def test_str_excinfo_equals_str_value(self):
+        excinfo = pytest.raises(ValueError, h)
+
+        assert str(excinfo) == str(excinfo.value)
+
+
+class TestEXCSTR002AfterMultilineLookupErrorCapture:
+    """GUID: EXCSTR-002."""
+
+    def test_str_is_exact_message(self):
+        with pytest.raises(LookupError) as excinfo:
+            raise LookupError("A\nB\nC")
+
+        assert str(excinfo) == "A\nB\nC"
+
+    def test_str_preserves_content_order_and_line_breaks(self):
+        with pytest.raises(LookupError) as excinfo:
+            raise LookupError("A\nB\nC")
+
+        assert str(excinfo).splitlines() == ["A", "B", "C"]
+        assert str(excinfo).count("\n") == 2
+
+    def test_str_is_not_traceback_summary(self):
+        with pytest.raises(LookupError) as excinfo:
+            raise LookupError("A\nB\nC")
+
+        result = str(excinfo)
+        assert result == str(excinfo.value)
+        assert "LookupError" not in result
+        assert __file__ not in result
+
+
+class TestEXCSTR005TracebackFormattingOutsideRaisesContextStr:
+    """GUID: EXCSTR-005."""
+
+    def test_existing_traceback_rendering_preserves_observable_formatting(
+        self, monkeypatch
+    ):
+        def fail():
+            raise ValueError("traceback-message")
+
+        try:
+            fail()
+        except ValueError:
+            excinfo = ExceptionInfo.from_current()
+
+        def unexpected_str(self):
+            raise AssertionError("traceback rendering called ExceptionInfo.__str__")
+
+        monkeypatch.setattr(ExceptionInfo, "__str__", unexpected_str)
+        reprtb = FormattedExcinfo(
+            style="short", abspath=False, tbfilter=False
+        ).repr_traceback(excinfo)
+
+        assert reprtb.style == "short"
+        assert reprtb.extraline is None
+        assert len(reprtb.reprentries) == 2
+        assert [entry.reprfileloc.message for entry in reprtb.reprentries] == [
+            "in test_existing_traceback_rendering_preserves_observable_formatting",
+            "in fail",
+        ]
+        assert reprtb.reprentries[-1].lines == [
+            '    raise ValueError("traceback-message")',
+            "E   ValueError: traceback-message",
+        ]
+
+    def test_existing_exception_chain_source_location_and_summary_preserve_content_and_structure(
+        self, monkeypatch
+    ):
+        try:
+            try:
+                raise LookupError("inner-message")
+            except LookupError as cause:
+                raise RuntimeError("outer-message") from cause
+        except RuntimeError:
+            excinfo = ExceptionInfo.from_current()
+
+        def unexpected_str(self):
+            raise AssertionError("exception rendering called ExceptionInfo.__str__")
+
+        monkeypatch.setattr(ExceptionInfo, "__str__", unexpected_str)
+        reprinfo = FormattedExcinfo(
+            style="short", abspath=False, tbfilter=False
+        ).repr_excinfo(excinfo)
+
+        assert isinstance(reprinfo, ExceptionChainRepr)
+        assert len(reprinfo.chain) == 2
+        assert [link[2] for link in reprinfo.chain] == [
+            "The above exception was the direct cause of the following exception:",
+            None,
+        ]
+        assert [link[1].message for link in reprinfo.chain] == [
+            "LookupError: inner-message",
+            "RuntimeError: outer-message",
+        ]
+        assert all(link[1].path == __file__ for link in reprinfo.chain)
+        assert all(link[1].lineno > 0 for link in reprinfo.chain)
+        assert reprinfo.reprcrash.message == "RuntimeError: outer-message"
+        assert reprinfo.reprtraceback is reprinfo.chain[-1][0]
+        assert reprinfo.reprtraceback.reprentries[-1].lines == [
+            '    raise RuntimeError("outer-message") from cause',
+            "E   RuntimeError: outer-message",
+        ]
 
 
 def test_excinfo_for_later():
