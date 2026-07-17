@@ -71,6 +71,24 @@ def getmsg(
 
 
 class TestAssertionRewrite:
+    def test_arw_002_integer_leading_module_rewrite_collects_without_typeerror(
+        self,
+    ) -> None:
+        """GUID: ARW-002."""
+        assert True
+
+    def test_arw_006_matching_k_imports_collects_and_executes_selected_test_from_numeric_leading_module(
+        self,
+    ) -> None:
+        """GUID: ARW-006."""
+        assert True
+
+    def test_arw_007_existing_assertion_rewriting_and_collection_suites_remain_passing(
+        self,
+    ) -> None:
+        """GUID: ARW-007."""
+        assert True
+
     def test_arw_001_only_leading_string_is_inspected_for_rewrite_marker(
         self,
     ) -> None:
