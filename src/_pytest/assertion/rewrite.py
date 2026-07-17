@@ -964,6 +964,36 @@ warn_explicit(
         res = self.assign(ast.BinOp(left_expr, binop.op, right_expr))
         return res, explanation
 
+    # GUID: ALLANY-001 -- direct built-in all(generator) failure diagnostics.
+    # LOGIC OBLIGATIONS:
+    # - Map test_allany_001_reports_first_falsy_predicate_evaluation to the
+    #   first predicate result that makes all() false.
+    # - Map test_allany_001_report_includes_relevant_item_value to the item
+    #   bindings used by that predicate evaluation.
+    # - Map test_allany_001_report_is_not_limited_to_generator_object to a
+    #   failure explanation assembled from the captured predicate and item.
+    # PSEUDOCODE -- rewrite_call(call):
+    #   IF call is a direct reference to the built-in all AND has exactly one
+    #   positional GeneratorExp argument and no keyword arguments:
+    #       state := NO_FALSY_PREDICATE
+    #       evaluate the generator's iterables, filters, and predicate in
+    #       normal source order, preserving lazy evaluation and binding scope
+    #       FOR each item that reaches the predicate:
+    #           evaluate the predicate exactly once
+    #           IF the predicate is falsy:
+    #               state := FIRST_FALSY(predicate explanation, item bindings)
+    #               stop iteration with the all() result set to false
+    #       IF iteration finishes without a falsy predicate:
+    #           keep the all() result true and do not create failure detail
+    #       IF evaluation raises:
+    #           propagate the exception without replacing it with assertion
+    #           diagnostic state
+    #       ON assertion failure with state FIRST_FALSY:
+    #           hand off an explanation containing the falsy predicate
+    #           evaluation and its relevant item value, not merely the
+    #           generator object's representation
+    #   ELSE:
+    #       use the ordinary call-rewrite flow unchanged
     def visit_Call_35(self, call):
         """
         visit `ast.Call` nodes on Python3.5 and after
