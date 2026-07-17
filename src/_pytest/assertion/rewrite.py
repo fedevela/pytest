@@ -124,6 +124,10 @@ class AssertionRewritingHook(importlib.abc.MetaPathFinder, importlib.abc.Loader)
     ) -> Optional[types.ModuleType]:
         return None  # default behaviour is fine
 
+    # Integration boundary (GUID: ARW-006): this loader owns delivery of a
+    # completely rewritten module namespace to collection.  Collection and the
+    # downstream -k selector consume that namespace; keyword matching does not
+    # depend back on, or belong inside, assertion rewriting.
     def exec_module(self, module: types.ModuleType) -> None:
         assert module.__spec__ is not None
         assert module.__spec__.origin is not None
@@ -668,10 +672,11 @@ class AssertionRewriter(ast.NodeVisitor):
         self.source = source
         self.variables_overwrite: Dict[str, str] = {}
 
-    # Architecture boundary (GUID: ARW-001, ARW-003, ARW-004, ARW-005): this
-    # entrypoint owns module-leading statement classification.  Only the string
-    # result of that classification may cross into is_rewrite_disabled; import
-    # placement and assertion traversal remain downstream consumers.
+    # Architecture boundary (GUID: ARW-001, ARW-002, ARW-003, ARW-004, ARW-005,
+    # ARW-007): this entrypoint owns module-leading statement classification.
+    # Only a classified string may cross into is_rewrite_disabled; import
+    # placement and assertion traversal remain downstream consumers whose
+    # existing contracts are unchanged for non-docstring-leading modules.
     def run(self, mod: ast.Module) -> None:
         """Find all assert statements in *mod* and rewrite them."""
         if not mod.body:
@@ -788,8 +793,8 @@ class AssertionRewriter(ast.NodeVisitor):
                     nodes.append(field)
 
     # Marker detection is a leaf predicate over a classified module docstring;
-    # it does not own AST shape inspection (GUID: ARW-001, ARW-003, ARW-004,
-    # ARW-005).
+    # it does not own AST shape inspection (GUID: ARW-001, ARW-002, ARW-003,
+    # ARW-004, ARW-005, ARW-007).
     @staticmethod
     def is_rewrite_disabled(docstring: str) -> bool:
         return "PYTEST_DONT_REWRITE" in docstring
