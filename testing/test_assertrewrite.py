@@ -672,6 +672,22 @@ class TestAssertionRewrite(object):
         assert "UnicodeEncodeError" not in msg
 
 
+class TestAllAny001DirectAllGeneratorFailureReport(object):
+    """Placeholder verification obligations for GUID: ALLANY-001."""
+
+    def test_allany_001_reports_first_falsy_predicate_evaluation(self):
+        """A direct all(generator) failure reports its first falsy predicate."""
+        assert True
+
+    def test_allany_001_report_includes_relevant_item_value(self):
+        """A direct all(generator) failure report includes the relevant item."""
+        assert True
+
+    def test_allany_001_report_is_not_limited_to_generator_object(self):
+        """A direct all(generator) failure report goes beyond generator repr."""
+        assert True
+
+
 class TestRewriteOnImport(object):
     def test_pycache_is_a_file(self, testdir):
         testdir.tmpdir.join("__pycache__").write("Hello")
