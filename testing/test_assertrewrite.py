@@ -72,22 +72,28 @@ def getmsg(
 
 class TestAssertionRewrite:
     def test_arw_002_integer_leading_module_rewrite_collects_without_typeerror(
-        self,
+        self, pytester: Pytester
     ) -> None:
         """GUID: ARW-002."""
-        assert True
+        pytester.makepyfile("1\n\ndef test_collected():\n    assert True\n")
+
+        result = pytester.runpytest()
+
+        result.assert_outcomes(passed=1)
 
     def test_arw_006_matching_k_imports_collects_and_executes_selected_test_from_numeric_leading_module(
-        self,
+        self, pytester: Pytester
     ) -> None:
         """GUID: ARW-006."""
-        assert True
+        pytester.makepyfile(
+            "1\n\n"
+            "def test_selected_case():\n    assert True\n\n"
+            "def test_other_case():\n    assert False\n"
+        )
 
-    def test_arw_007_existing_assertion_rewriting_and_collection_suites_remain_passing(
-        self,
-    ) -> None:
-        """GUID: ARW-007."""
-        assert True
+        result = pytester.runpytest("-k", "selected_case")
+
+        result.assert_outcomes(passed=1, deselected=1)
 
     def test_arw_001_only_leading_string_is_inspected_for_rewrite_marker(
         self,
@@ -120,6 +126,7 @@ class TestAssertionRewrite:
         assert not any(isinstance(node, ast.Assert) for node in ast.walk(m))
 
     def test_place_initial_imports(self) -> None:
+        """GUID: ARW-007; preserve established rewrite import placement."""
         s = """'Doc string'\nother = stuff"""
         m = rewrite(s)
         assert isinstance(m.body[0], ast.Expr)
