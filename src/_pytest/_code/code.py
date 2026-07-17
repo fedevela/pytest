@@ -534,6 +534,10 @@ class ExceptionInfo:
         )
         return fmt.repr_excinfo(self)
 
+    # GUID: EXCSTR-001, EXCSTR-002 -- post-capture conversion is owned here.
+    # RaisesContext owns capture and population; it must not own presentation.
+    # Dependency direction: __str__ -> value -> captured exception string conversion.
+    # Traceback, exconly, and ReprFileLocation are outside this conversion boundary.
     def __str__(self):
         # GUID: EXCSTR-001 -- captured-exception string conversion obligation.
         # GUID: EXCSTR-002 -- multiline LookupError preservation obligation.

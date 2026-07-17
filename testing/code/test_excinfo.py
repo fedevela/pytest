@@ -347,6 +347,8 @@ def test_excinfo_str():
     assert len(s.split(":")) >= 3  # on windows it's 4
 
 
+# GUID: EXCSTR-001, EXCSTR-002 -- post-capture verification seam.
+# These cases supersede the location-oriented contract in test_excinfo_str.
 class TestEXCSTR001AfterRaisesCapture:
     """GUID: EXCSTR-001."""
 
