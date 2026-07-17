@@ -339,34 +339,40 @@ def test_excinfo_repr():
     assert s == "<ExceptionInfo ValueError tblen=4>"
 
 
-def test_excinfo_str():
-    excinfo = pytest.raises(ValueError, h)
-    s = str(excinfo)
-    assert s.startswith(__file__[:-9])  # pyc file and $py.class
-    assert s.endswith("ValueError")
-    assert len(s.split(":")) >= 3  # on windows it's 4
-
-
 # GUID: EXCSTR-001, EXCSTR-002 -- post-capture verification seam.
-# These cases supersede the location-oriented contract in test_excinfo_str.
 class TestEXCSTR001AfterRaisesCapture:
     """GUID: EXCSTR-001."""
 
     def test_str_excinfo_equals_str_value(self):
-        assert True
+        excinfo = pytest.raises(ValueError, h)
+
+        assert str(excinfo) == str(excinfo.value)
 
 
 class TestEXCSTR002AfterMultilineLookupErrorCapture:
     """GUID: EXCSTR-002."""
 
     def test_str_is_exact_message(self):
-        assert True
+        with pytest.raises(LookupError) as excinfo:
+            raise LookupError("A\nB\nC")
+
+        assert str(excinfo) == "A\nB\nC"
 
     def test_str_preserves_content_order_and_line_breaks(self):
-        assert True
+        with pytest.raises(LookupError) as excinfo:
+            raise LookupError("A\nB\nC")
+
+        assert str(excinfo).splitlines() == ["A", "B", "C"]
+        assert str(excinfo).count("\n") == 2
 
     def test_str_is_not_traceback_summary(self):
-        assert True
+        with pytest.raises(LookupError) as excinfo:
+            raise LookupError("A\nB\nC")
+
+        result = str(excinfo)
+        assert result == str(excinfo.value)
+        assert "LookupError" not in result
+        assert __file__ not in result
 
 
 def test_excinfo_for_later():

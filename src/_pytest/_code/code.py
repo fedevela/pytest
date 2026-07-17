@@ -551,9 +551,7 @@ class ExceptionInfo:
         #   DO NOT fall back to traceback or location formatting.
         if self._excinfo is None:
             return repr(self)
-        entry = self.traceback[-1]
-        loc = ReprFileLocation(entry.path, entry.lineno + 1, self.exconly())
-        return str(loc)
+        return str(self.value)
 
     def match(self, regexp):
         """
