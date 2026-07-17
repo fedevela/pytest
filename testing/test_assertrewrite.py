@@ -673,19 +673,43 @@ class TestAssertionRewrite(object):
 
 
 class TestAllAny001DirectAllGeneratorFailureReport(object):
-    """Placeholder verification obligations for GUID: ALLANY-001."""
+    """Verification obligations for GUID: ALLANY-001."""
 
     def test_allany_001_reports_first_falsy_predicate_evaluation(self):
         """A direct all(generator) failure reports its first falsy predicate."""
-        assert True
+        evaluated = []
+
+        def is_positive(value):
+            evaluated.append(value)
+            return value > 0
+
+        def f():
+            values = [1, 0, -1]
+            assert all(is_positive(value) for value in values)
+
+        msg = getmsg(f, {"is_positive": is_positive})
+        assert "first falsy predicate evaluation: False" in msg
+        assert evaluated == [1, 0]
 
     def test_allany_001_report_includes_relevant_item_value(self):
         """A direct all(generator) failure report includes the relevant item."""
-        assert True
+        def f():
+            values = [2, 0, -1]
+            assert all(value > 0 for value in values)
+
+        msg = getmsg(f)
+        assert "relevant item value: value = 0" in msg
 
     def test_allany_001_report_is_not_limited_to_generator_object(self):
         """A direct all(generator) failure report goes beyond generator repr."""
-        assert True
+        def f():
+            values = [2, 0, -1]
+            assert all(value > 0 for value in values)
+
+        msg = getmsg(f)
+        assert "<generator object" not in msg
+        assert "first falsy predicate evaluation" in msg
+        assert "relevant item value" in msg
 
 
 class TestRewriteOnImport(object):

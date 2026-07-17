@@ -1017,12 +1017,164 @@ warn_explicit(
     #           generator object's representation
     #   ELSE:
     #       use the ordinary call-rewrite flow unchanged
+    @staticmethod
+    def _all_generator_binding_names(target):
+        """Return the names bound by a generator target in source order."""
+        if isinstance(target, ast.Name):
+            return [target.id]
+        if isinstance(target, (ast.List, ast.Tuple)):
+            names = []
+            for element in target.elts:
+                names.extend(AssertionRewriter._all_generator_binding_names(element))
+            return names
+        if isinstance(target, getattr(ast, "Starred", ())):
+            return AssertionRewriter._all_generator_binding_names(target.value)
+        return []
+
+    @staticmethod
+    def _subscript(value, index):
+        """Create a subscript node accepted by all supported Python ASTs."""
+        return ast.Subscript(value, ast.Index(ast.Num(index)), ast.Load())
+
+    @staticmethod
+    def _concat(expressions):
+        """Join string-valued AST expressions without adding a runtime helper."""
+        result = expressions[0]
+        for expression in expressions[1:]:
+            result = ast.BinOp(result, ast.Add(), expression)
+        return result
+
+    def _is_all_generator_call(self, call):
+        """Whether *call* has the syntax covered by ALLANY-001."""
+        if not (
+            isinstance(call.func, ast.Name)
+            and call.func.id == "all"
+            and len(call.args) == 1
+            and isinstance(call.args[0], ast.GeneratorExp)
+            and not call.keywords
+        ):
+            return False
+        if getattr(call, "starargs", None) or getattr(call, "kwargs", None):
+            return False
+        return not any(
+            getattr(generator, "is_async", 0)
+            for generator in call.args[0].generators
+        )
+
+    def _visit_all_generator(self, call):
+        """Rewrite direct ``all(generator)`` calls with first-failure detail."""
+        generator = call.args[0]
+        new_func, func_expl = self.visit(call.func)
+
+        # Resolve ``all`` before constructing the generator, as an ordinary call
+        # does, and retain the ordinary behavior when that name is shadowed.
+        func = self.assign(new_func)
+        is_builtin = self.assign(
+            ast.Compare(func, [ast.Is()], [self.builtin("all")])
+        )
+        result_name = self.variable()
+        detail_name = self.variable()
+        argument_name = self.variable()
+        pair_name = self.variable()
+        result_store = ast.Name(result_name, ast.Store())
+        detail_store = ast.Name(detail_name, ast.Store())
+        argument_store = ast.Name(argument_name, ast.Store())
+        result = ast.Name(result_name, ast.Load())
+        detail = ast.Name(detail_name, ast.Load())
+        argument = ast.Name(argument_name, ast.Load())
+        pair = ast.Name(pair_name, ast.Load())
+
+        binding_names = []
+        for comprehension in generator.generators:
+            for name in self._all_generator_binding_names(comprehension.target):
+                if name not in binding_names:
+                    binding_names.append(name)
+        binding_values = [ast.Name(name, ast.Load()) for name in binding_names]
+        yielded_detail = ast.Tuple(
+            [generator.elt, ast.Tuple(binding_values, ast.Load())], ast.Load()
+        )
+        diagnostic_generator = ast.GeneratorExp(
+            yielded_detail, generator.generators
+        )
+
+        pair_result = self._subscript(pair, 0)
+        first_falsy = [
+            ast.Assign([result_store], _NameConstant(False)),
+            ast.Assign([detail_store], pair),
+            ast.Break(),
+        ]
+        specialized = [
+            ast.Assign([result_store], _NameConstant(True)),
+            ast.Assign([detail_store], _NameConstant(None)),
+            ast.Assign([argument_store], _NameConstant(None)),
+            ast.For(
+                ast.Name(pair_name, ast.Store()),
+                diagnostic_generator,
+                [ast.If(ast.UnaryOp(ast.Not(), pair_result), first_falsy, [])],
+                [],
+            ),
+        ]
+        ordinary_call = ast_Call(func, [argument], [])
+        ordinary = [
+            ast.Assign([detail_store], _NameConstant(None)),
+            ast.Assign([argument_store], generator),
+            ast.Assign([result_store], ordinary_call),
+        ]
+        self.statements.append(ast.If(is_builtin, specialized, ordinary))
+
+        result_expl = self.explanation_param(self.display(result))
+        argument_expl = self.explanation_param(
+            ast.IfExp(
+                is_builtin,
+                ast.Str("<generator expression>"),
+                self.display(argument),
+            )
+        )
+
+        predicate = self._subscript(detail, 0)
+        suffix_parts = [
+            ast.Str("\n~first falsy predicate evaluation: "),
+            self.display(predicate),
+        ]
+        if binding_names:
+            suffix_parts.append(ast.Str("\n~relevant item value: "))
+            captured_values = self._subscript(detail, 1)
+            for index, name in enumerate(binding_names):
+                if index:
+                    suffix_parts.append(ast.Str(", "))
+                suffix_parts.extend(
+                    [
+                        ast.Str(name + " = "),
+                        self.display(self._subscript(captured_values, index)),
+                    ]
+                )
+        has_failure_detail = ast.BoolOp(
+            ast.And(), [is_builtin, ast.UnaryOp(ast.Not(), result)]
+        )
+        suffix_expl = self.explanation_param(
+            ast.IfExp(
+                has_failure_detail,
+                self._concat(suffix_parts),
+                ast.Str(""),
+            )
+        )
+        explanation = "%s\n{%s = %s(%s)%s\n}" % (
+            result_expl,
+            result_expl,
+            func_expl,
+            argument_expl,
+            suffix_expl,
+        )
+        return result, explanation
+
     def visit_Call_35(self, call):
         """
         visit `ast.Call` nodes on Python3.5 and after
         """
         # ALLANY-001 integration seam: qualification/delegation belongs here,
         # before generic argument visiting loses GeneratorExp predicate structure.
+        if self._is_all_generator_call(call):
+            return self._visit_all_generator(call)
         new_func, func_expl = self.visit(call.func)
         arg_expls = []
         new_args = []
@@ -1058,6 +1210,8 @@ warn_explicit(
         """
         # ALLANY-001 integration seam: mirror visit_Call_35 qualification here;
         # retain this adapter only for the legacy ast.Call field layout.
+        if self._is_all_generator_call(call):
+            return self._visit_all_generator(call)
         new_func, func_expl = self.visit(call.func)
         arg_expls = []
         new_args = []
