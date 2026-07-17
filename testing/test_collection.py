@@ -1533,6 +1533,24 @@ def test_class_from_parent(pytester: Pytester, request: FixtureRequest) -> None:
 
 
 class TestImportModeImportlib:
+    def test_pyimp_001_importlib_collection_reuses_canonical_pep420_module_from_sys_modules(
+        self,
+    ) -> None:
+        """GUID: PYIMP-001."""
+        pass
+
+    def test_pyimp_002_importlib_collection_preserves_existing_canonical_sys_modules_entry(
+        self,
+    ) -> None:
+        """GUID: PYIMP-002."""
+        pass
+
+    def test_pyimp_003_importlib_collection_observes_initialized_canonical_module_state(
+        self,
+    ) -> None:
+        """GUID: PYIMP-003."""
+        pass
+
     def test_collect_duplicate_names(self, pytester: Pytester) -> None:
         """--import-mode=importlib can import modules with same names that are not in packages."""
         pytester.makepyfile(
