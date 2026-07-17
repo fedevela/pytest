@@ -964,6 +964,29 @@ warn_explicit(
         res = self.assign(ast.BinOp(left_expr, binop.op, right_expr))
         return res, explanation
 
+    # ARCHITECTURE -- GUID: ALLANY-001
+    # Ownership: AssertionRewriter owns this feature because it alone coordinates
+    # expression evaluation, generated failure-only statements, and explanation
+    # formatting.  Keep the specialized rewrite private to this class; neither
+    # assertion.util nor a new public helper should own generator evaluation.
+    #
+    # Integration boundary: both version-specific Call visitors qualify a call
+    # before visiting its arguments.  A matching direct built-in all(GeneratorExp)
+    # is handed to one shared private rewrite seam; a non-match continues through
+    # the existing version-specific ordinary-call path.  The private seam keeps
+    # the standard expression-visitor contract of returning (result AST,
+    # explanation template), so visit_Assert remains the sole diagnostic consumer.
+    #
+    # Dependency direction: Call visitor -> private all-generator rewrite ->
+    # existing variable/statement/format-context helpers.  Captured predicate and
+    # item state belongs to the generated assertion-local AST, not module globals
+    # or assertion.util.  The explanation returned across the visitor contract is
+    # the only output dependency.
+    #
+    # Obligation placement:
+    # - first falsy predicate: private rewrite's short-circuit capture state
+    # - relevant item value: GeneratorExp target-binding capture at that state
+    # - more than generator repr: explanation returned to visit_Assert
     # GUID: ALLANY-001 -- direct built-in all(generator) failure diagnostics.
     # LOGIC OBLIGATIONS:
     # - Map test_allany_001_reports_first_falsy_predicate_evaluation to the
@@ -998,6 +1021,8 @@ warn_explicit(
         """
         visit `ast.Call` nodes on Python3.5 and after
         """
+        # ALLANY-001 integration seam: qualification/delegation belongs here,
+        # before generic argument visiting loses GeneratorExp predicate structure.
         new_func, func_expl = self.visit(call.func)
         arg_expls = []
         new_args = []
@@ -1031,6 +1056,8 @@ warn_explicit(
         """
         visit `ast.Call nodes on 3.4 and below`
         """
+        # ALLANY-001 integration seam: mirror visit_Call_35 qualification here;
+        # retain this adapter only for the legacy ast.Call field layout.
         new_func, func_expl = self.visit(call.func)
         arg_expls = []
         new_args = []
