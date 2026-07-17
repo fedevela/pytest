@@ -663,8 +663,22 @@ class AssertionRewriter(ast.NodeVisitor):
             # Nothing to do.
             return
 
-        # We'll insert some special imports at the top of the module, but after any
-        # docstrings and __future__ imports, so first figure out where that is.
+        # Assertion-rewrite eligibility pseudocode:
+        # - GUID: ARW-001 / GUID: ARW-003: Examine only the first statement as a
+        #   docstring candidate. If it is not a string expression, do not inspect
+        #   its value for the rewrite marker; keep the module rewrite-eligible and
+        #   hand the unchanged statement position to normal rewriting.
+        # - GUID: ARW-004: If the first statement is a string expression, inspect
+        #   that genuine module docstring for PYTEST_DONT_REWRITE. If present,
+        #   transition from rewrite-eligible to rewrite-disabled and return before
+        #   imports are inserted or assertions are traversed.
+        # - GUID: ARW-005: If that genuine module docstring lacks the marker, keep
+        #   the module rewrite-eligible, advance past the docstring and any
+        #   __future__ imports, then hand off to import insertion and assert
+        #   traversal.
+        # - Failure guard: Never pass a non-string expression value to marker
+        #   inspection; every valid non-string-leading module follows the normal
+        #   rewrite path rather than failing during classification.
         doc = getattr(mod, "docstring", None)
         expect_docstring = doc is None
         if doc is not None and self.is_rewrite_disabled(doc):
