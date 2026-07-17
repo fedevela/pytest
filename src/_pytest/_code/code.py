@@ -535,6 +535,16 @@ class ExceptionInfo:
         return fmt.repr_excinfo(self)
 
     def __str__(self):
+        # GUID: EXCSTR-001 -- captured-exception string conversion obligation.
+        # GUID: EXCSTR-002 -- multiline LookupError preservation obligation.
+        # PSEUDOCODE (after pytest.raises has successfully captured an exception):
+        #   captured_value = self.value
+        #   message = STRING(captured_value)
+        #   PRESERVE message content, ordering, and line breaks without parsing or reformatting.
+        #   DO NOT substitute source-location, exception-type, or traceback-summary text.
+        #   RETURN message, which MUST equal STRING(self.value).
+        #   IF the captured value's string conversion fails, PROPAGATE that failure unchanged;
+        #   DO NOT fall back to traceback or location formatting.
         if self._excinfo is None:
             return repr(self)
         entry = self.traceback[-1]
