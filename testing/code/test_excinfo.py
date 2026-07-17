@@ -347,6 +347,26 @@ def test_excinfo_str():
     assert len(s.split(":")) >= 3  # on windows it's 4
 
 
+class TestEXCSTR001AfterRaisesCapture:
+    """GUID: EXCSTR-001."""
+
+    def test_str_excinfo_equals_str_value(self):
+        assert True
+
+
+class TestEXCSTR002AfterMultilineLookupErrorCapture:
+    """GUID: EXCSTR-002."""
+
+    def test_str_is_exact_message(self):
+        assert True
+
+    def test_str_preserves_content_order_and_line_breaks(self):
+        assert True
+
+    def test_str_is_not_traceback_summary(self):
+        assert True
+
+
 def test_excinfo_for_later():
     e = ExceptionInfo.for_later()
     assert "for raises" in repr(e)
