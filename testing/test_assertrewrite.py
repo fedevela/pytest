@@ -71,7 +71,62 @@ def getmsg(
 
 
 class TestAssertionRewrite:
+    def test_arw_002_integer_leading_module_rewrite_collects_without_typeerror(
+        self, pytester: Pytester
+    ) -> None:
+        """GUID: ARW-002."""
+        pytester.makepyfile("1\n\ndef test_collected():\n    assert True\n")
+
+        result = pytester.runpytest()
+
+        result.assert_outcomes(passed=1)
+
+    def test_arw_006_matching_k_imports_collects_and_executes_selected_test_from_numeric_leading_module(
+        self, pytester: Pytester
+    ) -> None:
+        """GUID: ARW-006."""
+        pytester.makepyfile(
+            "1\n\n"
+            "def test_selected_case():\n    assert True\n\n"
+            "def test_other_case():\n    assert False\n"
+        )
+
+        result = pytester.runpytest("-k", "selected_case")
+
+        result.assert_outcomes(passed=1, deselected=1)
+
+    def test_arw_001_only_leading_string_is_inspected_for_rewrite_marker(
+        self,
+    ) -> None:
+        """GUID: ARW-001."""
+        m = rewrite(
+            "b'PYTEST_DONT_REWRITE'\n'PYTEST_DONT_REWRITE'\nassert False"
+        )
+        assert not any(isinstance(node, ast.Assert) for node in ast.walk(m))
+
+    def test_arw_003_leading_non_string_keeps_assertion_rewriting_eligible(
+        self,
+    ) -> None:
+        """GUID: ARW-003."""
+        m = rewrite("42\nassert False")
+        assert not any(isinstance(node, ast.Assert) for node in ast.walk(m))
+
+    def test_arw_004_docstring_with_marker_disables_assertion_rewriting(
+        self,
+    ) -> None:
+        """GUID: ARW-004."""
+        m = rewrite("'PYTEST_DONT_REWRITE'\nassert False")
+        assert isinstance(m.body[1], ast.Assert)
+
+    def test_arw_005_docstring_without_marker_keeps_assertion_rewriting_enabled(
+        self,
+    ) -> None:
+        """GUID: ARW-005."""
+        m = rewrite("'module docstring'\nassert False")
+        assert not any(isinstance(node, ast.Assert) for node in ast.walk(m))
+
     def test_place_initial_imports(self) -> None:
+        """GUID: ARW-007; preserve established rewrite import placement."""
         s = """'Doc string'\nother = stuff"""
         m = rewrite(s)
         assert isinstance(m.body[0], ast.Expr)

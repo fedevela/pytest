@@ -124,6 +124,10 @@ class AssertionRewritingHook(importlib.abc.MetaPathFinder, importlib.abc.Loader)
     ) -> Optional[types.ModuleType]:
         return None  # default behaviour is fine
 
+    # Integration boundary (GUID: ARW-006): this loader owns delivery of a
+    # completely rewritten module namespace to collection.  Collection and the
+    # downstream -k selector consume that namespace; keyword matching does not
+    # depend back on, or belong inside, assertion rewriting.
     def exec_module(self, module: types.ModuleType) -> None:
         assert module.__spec__ is not None
         assert module.__spec__.origin is not None
@@ -150,6 +154,17 @@ class AssertionRewritingHook(importlib.abc.MetaPathFinder, importlib.abc.Loader)
 
         cache_name = fn.name[:-3] + PYC_TAIL
         pyc = cache_dir / cache_name
+        # Numeric-leading module import and selection pseudocode:
+        # - GUID: ARW-006: Resolve the discovered test module through the normal
+        #   assertion-rewriting loader; on a cache miss, parse and rewrite its
+        #   source, and on a cache hit, reuse only the valid rewritten code.
+        # - Execute the resulting code in the module namespace so collection can
+        #   enumerate its tests. Hand the collected items to the existing -k
+        #   selection path; if the requested test matches, retain it for normal
+        #   execution without changing keyword-matching semantics.
+        # - Failure path: If numeric-leading source cannot complete rewriting,
+        #   do not produce or execute a partial code object and do not proceed to
+        #   selection; propagate the rewrite/import failure as a collection error.
         # Notice that even if we're in a read-only directory, I'm going
         # to check for a cached pyc. This may not be optimal...
         co = _read_pyc(fn, pyc, state.trace)
@@ -657,14 +672,49 @@ class AssertionRewriter(ast.NodeVisitor):
         self.source = source
         self.variables_overwrite: Dict[str, str] = {}
 
+    # Architecture boundary (GUID: ARW-001, ARW-002, ARW-003, ARW-004, ARW-005,
+    # ARW-007): this entrypoint owns module-leading statement classification.
+    # Only a classified string may cross into is_rewrite_disabled; import
+    # placement and assertion traversal remain downstream consumers whose
+    # existing contracts are unchanged for non-docstring-leading modules.
     def run(self, mod: ast.Module) -> None:
         """Find all assert statements in *mod* and rewrite them."""
         if not mod.body:
             # Nothing to do.
             return
 
-        # We'll insert some special imports at the top of the module, but after any
-        # docstrings and __future__ imports, so first figure out where that is.
+        # Assertion-rewrite eligibility pseudocode:
+        # - GUID: ARW-001 / GUID: ARW-003: Examine only the first statement as a
+        #   docstring candidate. If it is not a string expression, do not inspect
+        #   its value for the rewrite marker; keep the module rewrite-eligible and
+        #   hand the unchanged statement position to normal rewriting.
+        # - GUID: ARW-004: If the first statement is a string expression, inspect
+        #   that genuine module docstring for PYTEST_DONT_REWRITE. If present,
+        #   transition from rewrite-eligible to rewrite-disabled and return before
+        #   imports are inserted or assertions are traversed.
+        # - GUID: ARW-005: If that genuine module docstring lacks the marker, keep
+        #   the module rewrite-eligible, advance past the docstring and any
+        #   __future__ imports, then hand off to import insertion and assert
+        #   traversal.
+        # - Failure guard: Never pass a non-string expression value to marker
+        #   inspection; every valid non-string-leading module follows the normal
+        #   rewrite path rather than failing during classification.
+        # Numeric-leading collection pseudocode:
+        # - GUID: ARW-002: If the first statement is an integer expression,
+        #   classify it as a non-docstring, keep position zero as the insertion
+        #   point, and never perform string membership testing on its value.
+        # - Insert the rewrite imports before that expression, traverse and
+        #   rewrite every assertion, and leave the transformed module ready for
+        #   the loader to compile, import, and expose to collection.
+        # - Failure path: A valid integer-leading module must not transition to
+        #   rewrite-disabled or raise an internal TypeError during classification;
+        #   only ordinary parse, compile, import, or collection failures continue
+        #   through their existing error paths.
+        # Regression-boundary pseudocode:
+        # - GUID: ARW-007: Preserve the existing empty-module, genuine-docstring,
+        #   __future__-import, import-insertion, and assertion-traversal branches.
+        #   Numeric-leading classification changes no downstream AST traversal or
+        #   collection behavior for any other valid module shape.
         doc = getattr(mod, "docstring", None)
         expect_docstring = doc is None
         if doc is not None and self.is_rewrite_disabled(doc):
@@ -676,6 +726,7 @@ class AssertionRewriter(ast.NodeVisitor):
                 expect_docstring
                 and isinstance(item, ast.Expr)
                 and isinstance(item.value, ast.Constant)
+                and isinstance(item.value.value, str)
             ):
                 doc = item.value.value
                 if self.is_rewrite_disabled(doc):
@@ -741,6 +792,9 @@ class AssertionRewriter(ast.NodeVisitor):
                 ):
                     nodes.append(field)
 
+    # Marker detection is a leaf predicate over a classified module docstring;
+    # it does not own AST shape inspection (GUID: ARW-001, ARW-002, ARW-003,
+    # ARW-004, ARW-005, ARW-007).
     @staticmethod
     def is_rewrite_disabled(docstring: str) -> bool:
         return "PYTEST_DONT_REWRITE" in docstring
