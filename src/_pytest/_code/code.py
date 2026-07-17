@@ -727,6 +727,22 @@ class FormattedExcinfo:
         return path
 
     def repr_traceback(self, excinfo):
+        # GUID: EXCSTR-005 -- preserve traceback rendering outside direct
+        # pytest.raises context-variable string conversion.
+        # PSEUDOCODE:
+        #   INPUT the existing ExceptionInfo and formatter configuration.
+        #   SELECT the captured traceback; IF filtering is enabled, apply the
+        #       existing traceback filter without changing entry content or order.
+        #   IF the exception is recursive, apply the existing truncation flow and
+        #       retain its explanatory line; OTHERWISE retain no extra line.
+        #   FOR EACH selected entry in order:
+        #       format it with the existing style, source, location, and summary;
+        #       provide exception details only to the final entry as before.
+        #   RETURN the existing ReprTraceback structure with the same entries,
+        #       extra line, and style.
+        #   IF existing filtering or formatting fails, preserve its established
+        #       error propagation; DO NOT consult ExceptionInfo.__str__ or invent
+        #       an alternate traceback representation.
         traceback = excinfo.traceback
         if self.tbfilter:
             traceback = traceback.filter()
@@ -782,6 +798,27 @@ class FormattedExcinfo:
         return traceback, extraline
 
     def repr_excinfo(self, excinfo):
+
+        # GUID: EXCSTR-005 -- preserve exception-chain, source-location, and
+        # traceback-summary content outside direct pytest.raises context str().
+        # PSEUDOCODE:
+        #   INPUT the existing ExceptionInfo and chain-rendering configuration.
+        #   START at the current exception and track identities already visited.
+        #   WHILE an unvisited exception remains:
+        #       build its traceback and crash-location representations through
+        #       the existing paths, or use the established native fallback when
+        #       that exception has no traceback;
+        #       append the representation and its current chain descriptor;
+        #       IF an explicit cause exists and chain rendering is enabled,
+        #           transition to that cause with the direct-cause descriptor;
+        #       ELSE IF an unsuppressed context exists and chaining is enabled,
+        #           transition to that context with the context descriptor;
+        #       ELSE terminate the chain.
+        #   REVERSE the collected links into existing display order and RETURN
+        #       the same ExceptionChainRepr content and structure.
+        #   ON repeated identities, stop as before; ON formatting failure,
+        #       preserve established propagation without substituting the direct
+        #       string value of a pytest.raises context variable.
 
         repr_chain = []
         e = excinfo.value

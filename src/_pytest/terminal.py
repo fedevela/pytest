@@ -813,6 +813,24 @@ class TerminalReporter:
                 self._tw.line(content)
 
     def summary_failures(self):
+        # GUID: EXCSTR-005 -- preserve existing pytest failure-report formatting
+        # outside direct pytest.raises context-variable string conversion.
+        # PSEUDOCODE:
+        #   INPUT terminal options and failed reports in their existing order.
+        #   IF traceback display is disabled, emit no failure summary.
+        #   OTHERWISE select undisplayed failed reports; IF none exist, return.
+        #   EMIT the established FAILURES separator.
+        #   IF line style is selected, FOR EACH report emit its existing crash
+        #       line through the established crash-line conversion path.
+        #   ELSE collect teardown reports by node identity, then FOR EACH failure:
+        #       emit its existing headline and separators;
+        #       delegate its long representation and captured sections to the
+        #       existing report-rendering flow;
+        #       emit associated teardown sections in their existing order.
+        #   PRESERVE all existing text, source locations, separators, colors,
+        #       capture handling, fallbacks, and downstream error behavior;
+        #       DO NOT route report rendering through ExceptionInfo.__str__ or
+        #       reformat output because of direct pytest.raises context str().
         if self.config.option.tbstyle != "no":
             reports = self.getreports("failed")
             if not reports:
