@@ -460,6 +460,13 @@ class TestAssert_reprcompare:
         ]
 
     class TestPrintableByteStringExtraItemContracts:
+        # ARCHITECTURE (GUID: BYTE-001, BYTE-003, BYTE-004, BYTE-005, BYTE-007):
+        # This existing assertion-explanation test locus owns both seam levels:
+        # direct comparison contracts cover value/side/position/composition,
+        # while rewritten normal and verbose cases cover terminal integration.
+        # Implementation remains in assertion.util; tests depend inward on that
+        # private behavior and do not introduce a production adapter or API.
+
         def test_BYTE_001_empty_left_b42_reports_first_extra_as_byte_value(self):
             """GUID: BYTE-001; b'' == b'42' reports the first extra as a byte."""
             # PSEUDOCODE:

@@ -115,6 +115,11 @@ def isiterable(obj):
 
 def assertrepr_compare(config, op, left, right):
     """Return specialised explanations for some operators/operands"""
+    # ARCHITECTURE (GUID: BYTE-004, BYTE-005): This dispatcher owns the
+    # original-operand summary and composes specialized sequence details with
+    # iterable diff context. Byte-specific representation stays behind the
+    # private _compare_eq_sequence boundary; it must not move into this
+    # orchestration layer or make that comparator depend on config/reporting.
     # PSEUDOCODE (GUID: BYTE-004, BYTE-005):
     # INPUT the original left and right byte strings and the equality operator.
     # BUILD the comparison summary from those original operands before deriving
@@ -266,6 +271,11 @@ def _compare_eq_iterable(left, right, verbose=0):
 
 
 def _compare_eq_sequence(left, right, verbose=0):
+    # ARCHITECTURE (GUID: BYTE-001, BYTE-003): The existing first-extra item
+    # extraction point is the byte-representation adaptation seam. This private
+    # comparator owns side, position, count, and the returned detail lines;
+    # assertrepr_compare remains responsible for operand identity and diff
+    # assembly, so no new public interface or cross-layer dependency is needed.
     # PSEUDOCODE (GUID: BYTE-001, BYTE-003):
     # INPUT two unequal sequences after equality comparison has failed.
     # SCAN their shared positions in order and report the first differing item.
