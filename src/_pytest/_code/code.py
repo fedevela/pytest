@@ -576,6 +576,11 @@ class ExceptionInfo:
         return True
 
 
+# GUID: EXCSTR-005 -- architecture boundary.
+# FormattedExcinfo owns translation from ExceptionInfo into the established
+# TerminalRepr object graph (traceback entries, locations, summaries, chains).
+# ExceptionInfo.__str__ is a separate, upstream value-conversion contract and
+# must not become an input or dependency of this representation boundary.
 @attr.s
 class FormattedExcinfo:
     """ presenting information about failing Functions and Generators. """

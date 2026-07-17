@@ -219,6 +219,11 @@ class WarningReport:
         return None
 
 
+# GUID: EXCSTR-005 -- architecture boundary.
+# TerminalReporter owns report selection and terminal emission; it consumes the
+# existing report/TerminalRepr contracts produced by _pytest._code. Dependency
+# remains one-way toward those representations and must not reach through to
+# direct pytest.raises context-variable string conversion.
 class TerminalReporter:
     def __init__(self, config, file=None):
         import _pytest.config
