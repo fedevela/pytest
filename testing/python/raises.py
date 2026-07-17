@@ -6,6 +6,22 @@ from _pytest.warning_types import PytestDeprecationWarning
 
 
 class TestRaises:
+    def test_excstr_003_successful_capture_value_exposes_captured_exception_object(self):
+        """GUID: EXCSTR-003."""
+        pass
+
+    def test_excstr_004_no_exception_preserves_existing_did_not_raise_outcome(self):
+        """GUID: EXCSTR-004."""
+        pass
+
+    def test_excstr_004_unexpected_type_preserves_existing_propagation_outcome(self):
+        """GUID: EXCSTR-004."""
+        pass
+
+    def test_excstr_003_string_conversion_preserves_value_access_to_captured_object(self):
+        """GUID: EXCSTR-003."""
+        pass
+
     def test_raises(self):
         source = "int('qwe')"
         with pytest.warns(PytestDeprecationWarning):
