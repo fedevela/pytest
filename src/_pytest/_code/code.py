@@ -370,6 +370,9 @@ co_equal = compile(
 )
 
 
+# ARCHITECTURE (GUID: EXCSTR-003): ExceptionInfo is the capture-data owner.
+# Consumers, including pytest.raises, may populate its private exception tuple, but
+# access to the captured object remains this type's responsibility through .value.
 @attr.s(repr=False)
 class ExceptionInfo:
     """ wraps sys.exc_info() objects and offers

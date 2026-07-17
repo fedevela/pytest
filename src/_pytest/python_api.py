@@ -706,6 +706,11 @@ def raises(expected_exception, *args, **kwargs):
 raises.Exception = fail.Exception
 
 
+# ARCHITECTURE (GUID: EXCSTR-003, EXCSTR-004): RaisesContext owns the
+# context-manager validation boundary.  Its dependency points inward to
+# ExceptionInfo as the capture carrier; ExceptionInfo does not depend on raises
+# policy.  __enter__ establishes that carrier and __exit__ is the sole seam for
+# no-exception failure, unexpected-type propagation, and successful capture.
 class RaisesContext:
     def __init__(self, expected_exception, message, match_expr):
         self.expected_exception = expected_exception
