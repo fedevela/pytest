@@ -75,25 +75,31 @@ class TestAssertionRewrite:
         self,
     ) -> None:
         """GUID: ARW-001."""
-        assert True
+        m = rewrite(
+            "b'PYTEST_DONT_REWRITE'\n'PYTEST_DONT_REWRITE'\nassert False"
+        )
+        assert not any(isinstance(node, ast.Assert) for node in ast.walk(m))
 
     def test_arw_003_leading_non_string_keeps_assertion_rewriting_eligible(
         self,
     ) -> None:
         """GUID: ARW-003."""
-        assert True
+        m = rewrite("42\nassert False")
+        assert not any(isinstance(node, ast.Assert) for node in ast.walk(m))
 
     def test_arw_004_docstring_with_marker_disables_assertion_rewriting(
         self,
     ) -> None:
         """GUID: ARW-004."""
-        assert True
+        m = rewrite("'PYTEST_DONT_REWRITE'\nassert False")
+        assert isinstance(m.body[1], ast.Assert)
 
     def test_arw_005_docstring_without_marker_keeps_assertion_rewriting_enabled(
         self,
     ) -> None:
         """GUID: ARW-005."""
-        assert True
+        m = rewrite("'module docstring'\nassert False")
+        assert not any(isinstance(node, ast.Assert) for node in ast.walk(m))
 
     def test_place_initial_imports(self) -> None:
         s = """'Doc string'\nother = stuff"""
