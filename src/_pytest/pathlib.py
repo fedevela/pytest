@@ -524,6 +524,11 @@ def import_path(
     if mode is ImportMode.importlib:
         module_name = module_name_from_path(path, root)
 
+        # PYIMP-001 / PYIMP-002 / PYIMP-003 architecture boundary:
+        # `import_path` owns canonical-module selection for collection. The
+        # `sys.modules` registry is authoritative at this seam; meta-path/spec
+        # loading is a fallback dependency only when that registry has no entry.
+
         # PYIMP-001 / PYIMP-002 / PYIMP-003 pseudocode -- canonical-module guard:
         # INPUT: module_name derived for the path collected in importlib mode.
         # canonical_module := sys.modules.get(module_name)
