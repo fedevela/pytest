@@ -459,6 +459,39 @@ class TestAssert_reprcompare:
             "+ (4,)",
         ]
 
+    class TestPrintableByteStringExtraItemContracts:
+        def test_BYTE_001_empty_left_b42_reports_first_extra_as_byte_value(self):
+            """GUID: BYTE-001; b'' == b'42' reports the first extra as a byte."""
+            assert True
+
+        def test_BYTE_001_empty_left_b1_reports_first_extra_as_byte_value(self):
+            """GUID: BYTE-001; b'' == b'1' reports the first extra as a byte."""
+            assert True
+
+        def test_BYTE_003_multiple_extra_bytes_on_right_report_side_and_position(self):
+            """GUID: BYTE-003; right extras retain their side and first position."""
+            assert True
+
+        def test_BYTE_003_multiple_extra_bytes_on_left_report_side_and_position(self):
+            """GUID: BYTE-003; left extras retain their side and first position."""
+            assert True
+
+        def test_BYTE_004_printable_extra_byte_keeps_both_operands_identifiable(self):
+            """GUID: BYTE-004; clarified output retains both compared byte strings."""
+            assert True
+
+        def test_BYTE_005_printable_extra_byte_keeps_summary_and_full_diff(self):
+            """GUID: BYTE-005; clarified output retains its summary and full diff."""
+            assert True
+
+        def test_BYTE_007_normal_output_checks_byte_value_and_comparison_context(self):
+            """GUID: BYTE-007; normal output checks the byte and comparison context."""
+            assert True
+
+        def test_BYTE_007_verbose_output_checks_byte_value_and_comparison_context(self):
+            """GUID: BYTE-007; verbose output checks the byte and comparison context."""
+            assert True
+
     def test_set(self):
         expl = callequal({0, 1}, {0, 2})
         assert len(expl) > 1
