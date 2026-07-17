@@ -421,6 +421,12 @@ class ExceptionInfo:
     @property
     def value(self):
         """the exception value"""
+        # GUID: EXCSTR-003 -- preserve captured-exception identity and access.
+        # PSEUDOCODE (after RaisesContext records a successful capture):
+        #   captured_exception = self._excinfo[1]
+        #   IF direct string conversion was requested before this access:
+        #       TREAT conversion as read-only; DO NOT replace or clear captured_exception.
+        #   RETURN captured_exception as the same object raised by the managed block.
         return self._excinfo[1]
 
     @property
