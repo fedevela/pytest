@@ -1533,23 +1533,87 @@ def test_class_from_parent(pytester: Pytester, request: FixtureRequest) -> None:
 
 
 class TestImportModeImportlib:
+    def setup_pep420_application(
+        self, pytester: Pytester, test_source: str
+    ) -> None:
+        pytester.makepyfile(
+            **{
+                "application/commands.py": """
+                    from . import state
+
+                    imported_state = state
+                    state.ApplicationState.value = "initialized"
+                """,
+                "application/state.py": """
+                    class ApplicationState:
+                        value = "uninitialized"
+                """,
+                "tests/__init__.py": "",
+                "tests/test_commands.py": test_source,
+            }
+        )
+        pytester.makeini(
+            """
+            [pytest]
+            addopts = --doctest-modules --import-mode importlib
+            """
+        )
+
     def test_pyimp_001_importlib_collection_reuses_canonical_pep420_module_from_sys_modules(
-        self,
+        self, pytester: Pytester
     ) -> None:
         """GUID: PYIMP-001."""
-        pass
+        self.setup_pep420_application(
+            pytester,
+            """
+                import sys
+                from application import state
+
+                def test_canonical_module_identity():
+                    assert state is sys.modules["application.state"]
+            """,
+        )
+
+        result = pytester.runpytest_subprocess()
+
+        result.assert_outcomes(passed=1)
 
     def test_pyimp_002_importlib_collection_preserves_existing_canonical_sys_modules_entry(
-        self,
+        self, pytester: Pytester
     ) -> None:
         """GUID: PYIMP-002."""
-        pass
+        self.setup_pep420_application(
+            pytester,
+            """
+                import sys
+                from application import commands
+
+                def test_original_module_remains_registered():
+                    assert commands.imported_state is sys.modules["application.state"]
+            """,
+        )
+
+        result = pytester.runpytest_subprocess()
+
+        result.assert_outcomes(passed=1)
 
     def test_pyimp_003_importlib_collection_observes_initialized_canonical_module_state(
-        self,
+        self, pytester: Pytester
     ) -> None:
         """GUID: PYIMP-003."""
-        pass
+        self.setup_pep420_application(
+            pytester,
+            """
+                from application.state import ApplicationState
+
+                def test_initialized_state_is_shared():
+                    assert ApplicationState.value == "initialized"
+            """,
+        )
+
+        result = pytester.runpytest_subprocess()
+
+        result.assert_outcomes(passed=1)
 
     def test_collect_duplicate_names(self, pytester: Pytester) -> None:
         """--import-mode=importlib can import modules with same names that are not in packages."""
