@@ -115,23 +115,6 @@ def isiterable(obj):
 
 def assertrepr_compare(config, op, left, right):
     """Return specialised explanations for some operators/operands"""
-    # ARCHITECTURE (GUID: BYTE-004, BYTE-005): This dispatcher owns the
-    # original-operand summary and composes specialized sequence details with
-    # iterable diff context. Byte-specific representation stays behind the
-    # private _compare_eq_sequence boundary; it must not move into this
-    # orchestration layer or make that comparator depend on config/reporting.
-    # PSEUDOCODE (GUID: BYTE-004, BYTE-005):
-    # INPUT the original left and right byte strings and the equality operator.
-    # BUILD the comparison summary from those original operands before deriving
-    # any specialized explanation, so both byte strings remain identifiable.
-    # DISPATCH unequal byte strings through the sequence explanation flow.
-    # APPEND the iterable comparison context without replacing that explanation:
-    #   IF verbose output is disabled, retain the full-diff availability notice.
-    #   ELSE retain the "Full diff:" section derived from the original operands.
-    # IF specialized explanation generation fails, hand off to the existing
-    # representation-failure explanation without concealing the failure.
-    # RETURN the original comparison summary first, followed by the clarified
-    # extra-byte explanation and the applicable diff context.
     width = 80 - 15 - len(op) - 2  # 15 chars indentation, 1 space around op
     left_repr = saferepr(left, maxsize=int(width // 2))
     right_repr = saferepr(right, maxsize=width - len(left_repr))
@@ -271,27 +254,6 @@ def _compare_eq_iterable(left, right, verbose=0):
 
 
 def _compare_eq_sequence(left, right, verbose=0):
-    # ARCHITECTURE (GUID: BYTE-001, BYTE-003): The existing first-extra item
-    # extraction point is the byte-representation adaptation seam. This private
-    # comparator owns side, position, count, and the returned detail lines;
-    # assertrepr_compare remains responsible for operand identity and diff
-    # assembly, so no new public interface or cross-layer dependency is needed.
-    # PSEUDOCODE (GUID: BYTE-001, BYTE-003):
-    # INPUT two unequal sequences after equality comparison has failed.
-    # SCAN their shared positions in order and report the first differing item.
-    # COMPUTE the length difference.
-    # IF one sequence is longer:
-    #   SELECT "Left" when the difference is positive; otherwise select "Right".
-    #   SET first_extra_position to the length of the shorter sequence.
-    #   IF both operands are byte strings AND the byte at that position falls
-    #   within the printable-byte scope:
-    #     SELECT the one-byte slice at first_extra_position, preserving byte identity.
-    #   ELSE:
-    #     SELECT the item using the existing sequence-item representation.
-    #   FORMAT the selected value safely.
-    #   IF exactly one item is extra, emit the singular side-specific explanation.
-    #   ELSE emit the count and first-extra explanation for the selected side.
-    # OUTPUT the ordered explanation; do not alter comparison or diff generation.
     explanation = []
     len_left = len(left)
     len_right = len(right)
@@ -306,11 +268,19 @@ def _compare_eq_sequence(left, right, verbose=0):
     if len_diff:
         if len_diff > 0:
             dir_with_more = "Left"
-            extra = saferepr(left[len_right])
+            extra_seq = left
+            extra_index = len_right
         else:
             len_diff = 0 - len_diff
             dir_with_more = "Right"
-            extra = saferepr(right[len_left])
+            extra_seq = right
+            extra_index = len_left
+
+        extra = extra_seq[extra_index]
+        if isinstance(left, bytes) and isinstance(right, bytes):
+            if 32 <= extra <= 126:
+                extra = extra_seq[extra_index : extra_index + 1]
+        extra = saferepr(extra)
 
         if len_diff == 1:
             explanation += [

@@ -460,85 +460,74 @@ class TestAssert_reprcompare:
         ]
 
     class TestPrintableByteStringExtraItemContracts:
-        # ARCHITECTURE (GUID: BYTE-001, BYTE-003, BYTE-004, BYTE-005, BYTE-007):
-        # This existing assertion-explanation test locus owns both seam levels:
-        # direct comparison contracts cover value/side/position/composition,
-        # while rewritten normal and verbose cases cover terminal integration.
-        # Implementation remains in assertion.util; tests depend inward on that
-        # private behavior and do not introduce a production adapter or API.
-
         def test_BYTE_001_empty_left_b42_reports_first_extra_as_byte_value(self):
             """GUID: BYTE-001; b'' == b'42' reports the first extra as a byte."""
-            # PSEUDOCODE:
-            # ARRANGE a rewritten equality assertion comparing b"" with b"42".
-            # RUN the assertion and capture its failure explanation.
-            # VERIFY the right-side first extra value is recognizable as b"4".
-            # VERIFY that value is not presented only as the decimal ordinal 52.
-            assert True
+            lines = callequal(b"", b"42")
+            assert lines[1] == "Right contains 2 more items, first extra item: b'4'"
+            assert "52" not in lines[1]
 
         def test_BYTE_001_empty_left_b1_reports_first_extra_as_byte_value(self):
             """GUID: BYTE-001; b'' == b'1' reports the first extra as a byte."""
-            # PSEUDOCODE:
-            # ARRANGE a rewritten equality assertion comparing b"" with b"1".
-            # RUN the assertion and capture its failure explanation.
-            # VERIFY the right-side first extra value is recognizable as b"1".
-            # VERIFY that value is not presented only as the decimal ordinal 49.
-            assert True
+            lines = callequal(b"", b"1")
+            assert lines[1] == "Right contains one more item: b'1'"
+            assert "49" not in lines[1]
 
         def test_BYTE_003_multiple_extra_bytes_on_right_report_side_and_position(self):
             """GUID: BYTE-003; right extras retain their side and first position."""
-            # PSEUDOCODE:
-            # ARRANGE b"a" and b"a42", leaving two bytes only on the right.
-            # RUN comparison explanation generation.
-            # VERIFY it names the right operand, reports the correct extra count,
-            # and represents b"4" at first_extra_position 1.
-            assert True
+            lines = callequal(b"a", b"a42")
+            assert lines[1] == "Right contains 2 more items, first extra item: b'4'"
 
         def test_BYTE_003_multiple_extra_bytes_on_left_report_side_and_position(self):
             """GUID: BYTE-003; left extras retain their side and first position."""
-            # PSEUDOCODE:
-            # ARRANGE b"a42" and b"a", leaving two bytes only on the left.
-            # RUN comparison explanation generation.
-            # VERIFY it names the left operand, reports the correct extra count,
-            # and represents b"4" at first_extra_position 1.
-            assert True
+            lines = callequal(b"a42", b"a")
+            assert lines[1] == "Left contains 2 more items, first extra item: b'4'"
 
         def test_BYTE_004_printable_extra_byte_keeps_both_operands_identifiable(self):
             """GUID: BYTE-004; clarified output retains both compared byte strings."""
-            # PSEUDOCODE:
-            # ARRANGE a rewritten equality failure comparing b"" with b"1".
-            # CAPTURE the complete assertion explanation.
-            # VERIFY the comparison summary still identifies the original left
-            # byte string and the original right byte string in their proper order.
-            assert True
+            lines = callequal(b"", b"1")
+            assert lines[0] == "b'' == b'1'"
 
         def test_BYTE_005_printable_extra_byte_keeps_summary_and_full_diff(self):
             """GUID: BYTE-005; clarified output retains its summary and full diff."""
-            # PSEUDOCODE:
-            # ARRANGE unequal byte strings b"" and b"42".
-            # GENERATE the verbose comparison explanation.
-            # VERIFY the original comparison summary precedes the clarified extra.
-            # VERIFY a "Full diff:" section follows and remains factually consistent
-            # with the original left and right byte strings.
-            assert True
+            lines = callequal(b"", b"42", verbose=True)
+            assert lines == [
+                "b'' == b'42'",
+                "Right contains 2 more items, first extra item: b'4'",
+                "Full diff:",
+                "- b''",
+                "+ b'42'",
+                "?   ++",
+            ]
 
-        def test_BYTE_007_normal_output_checks_byte_value_and_comparison_context(self):
+        def test_BYTE_007_normal_output_checks_byte_value_and_comparison_context(
+            self, testdir
+        ):
             """GUID: BYTE-007; normal output checks the byte and comparison context."""
-            # PSEUDOCODE:
-            # CREATE a rewritten test containing `assert b"" == b"42"`.
-            # RUN pytest at normal verbosity and capture terminal output.
-            # VERIFY the recognizable byte value, correct side, both original
-            # operands, comparison summary, and full-diff availability notice.
-            assert True
+            testdir.makepyfile("def test_bytes(): assert b'' == b'42'")
 
-        def test_BYTE_007_verbose_output_checks_byte_value_and_comparison_context(self):
+            result = testdir.runpytest()
+
+            result.assert_outcomes(failed=1)
+            output = result.stdout.str()
+            assert "assert b'' == b'42'" in output
+            assert "Right contains 2 more items, first extra item: b'4'" in output
+            assert "Use -v to get the full diff" in output
+
+        def test_BYTE_007_verbose_output_checks_byte_value_and_comparison_context(
+            self, testdir
+        ):
             """GUID: BYTE-007; verbose output checks the byte and comparison context."""
-            # PSEUDOCODE:
-            # CREATE a rewritten test containing `assert b"" == b"42"`.
-            # RUN pytest with verbose assertion output and capture terminal output.
-            # VERIFY the recognizable byte value, correct side, both original
-            # operands, comparison summary, and factually consistent full diff.
-            assert True
+            testdir.makepyfile("def test_bytes(): assert b'' == b'42'")
+
+            result = testdir.runpytest("-v")
+
+            result.assert_outcomes(failed=1)
+            output = result.stdout.str()
+            assert "assert b'' == b'42'" in output
+            assert "Right contains 2 more items, first extra item: b'4'" in output
+            assert "Full diff:" in output
+            assert "- b''" in output
+            assert "+ b'42'" in output
 
     def test_set(self):
         expl = callequal({0, 1}, {0, 2})
