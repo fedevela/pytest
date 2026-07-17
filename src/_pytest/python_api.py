@@ -706,11 +706,6 @@ def raises(expected_exception, *args, **kwargs):
 raises.Exception = fail.Exception
 
 
-# ARCHITECTURE (GUID: EXCSTR-003, EXCSTR-004): RaisesContext owns the
-# context-manager validation boundary.  Its dependency points inward to
-# ExceptionInfo as the capture carrier; ExceptionInfo does not depend on raises
-# policy.  __enter__ establishes that carrier and __exit__ is the sole seam for
-# no-exception failure, unexpected-type propagation, and successful capture.
 class RaisesContext:
     def __init__(self, expected_exception, message, match_expr):
         self.expected_exception = expected_exception
@@ -723,20 +718,6 @@ class RaisesContext:
         return self.excinfo
 
     def __exit__(self, *tp):
-        # GUID: EXCSTR-003 -- retain the successfully captured exception object.
-        # GUID: EXCSTR-004 -- preserve absent- and unexpected-exception outcomes.
-        # PSEUDOCODE (inputs: exception_type, exception_value, traceback):
-        #   IF exception_type is absent:
-        #       RAISE the existing pytest.raises failure using self.message.
-        #   OTHERWISE populate self.excinfo with the complete exception tuple.
-        #   expected = ISSUBCLASS(exception_type, self.expected_exception)
-        #   IF expected is false:
-        #       RETURN false so the unexpected exception propagates unchanged.
-        #   IF a match expression exists:
-        #       VALIDATE it against the captured exception using existing match behavior;
-        #       PROPAGATE any validation failure unchanged.
-        #   RETURN true to suppress the expected exception while retaining
-        #   exception_value for subsequent identity-preserving .value access.
         __tracebackhide__ = True
         if tp[0] is None:
             fail(self.message)

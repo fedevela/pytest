@@ -370,9 +370,6 @@ co_equal = compile(
 )
 
 
-# ARCHITECTURE (GUID: EXCSTR-003): ExceptionInfo is the capture-data owner.
-# Consumers, including pytest.raises, may populate its private exception tuple, but
-# access to the captured object remains this type's responsibility through .value.
 @attr.s(repr=False)
 class ExceptionInfo:
     """ wraps sys.exc_info() objects and offers
@@ -414,7 +411,10 @@ class ExceptionInfo:
     def for_later(cls):
         """return an unfilled ExceptionInfo
         """
-        return cls(None)
+        excinfo = cls(None)
+        # The context-manager form exposes the captured exception message via str().
+        excinfo._is_raises_context = True
+        return excinfo
 
     @property
     def type(self):
@@ -424,12 +424,6 @@ class ExceptionInfo:
     @property
     def value(self):
         """the exception value"""
-        # GUID: EXCSTR-003 -- preserve captured-exception identity and access.
-        # PSEUDOCODE (after RaisesContext records a successful capture):
-        #   captured_exception = self._excinfo[1]
-        #   IF direct string conversion was requested before this access:
-        #       TREAT conversion as read-only; DO NOT replace or clear captured_exception.
-        #   RETURN captured_exception as the same object raised by the managed block.
         return self._excinfo[1]
 
     @property
@@ -543,24 +537,12 @@ class ExceptionInfo:
         )
         return fmt.repr_excinfo(self)
 
-    # GUID: EXCSTR-001, EXCSTR-002 -- post-capture conversion is owned here.
-    # RaisesContext owns capture and population; it must not own presentation.
-    # Dependency direction: __str__ -> value -> captured exception string conversion.
-    # Traceback, exconly, and ReprFileLocation are outside this conversion boundary.
     def __str__(self):
-        # GUID: EXCSTR-001 -- captured-exception string conversion obligation.
-        # GUID: EXCSTR-002 -- multiline LookupError preservation obligation.
-        # PSEUDOCODE (after pytest.raises has successfully captured an exception):
-        #   captured_value = self.value
-        #   message = STRING(captured_value)
-        #   PRESERVE message content, ordering, and line breaks without parsing or reformatting.
-        #   DO NOT substitute source-location, exception-type, or traceback-summary text.
-        #   RETURN message, which MUST equal STRING(self.value).
-        #   IF the captured value's string conversion fails, PROPAGATE that failure unchanged;
-        #   DO NOT fall back to traceback or location formatting.
         if self._excinfo is None:
             return repr(self)
-        return str(self.value)
+        if getattr(self, "_is_raises_context", False):
+            return str(self.value)
+        return repr(self)
 
     def match(self, regexp):
         """
@@ -576,11 +558,6 @@ class ExceptionInfo:
         return True
 
 
-# GUID: EXCSTR-005 -- architecture boundary.
-# FormattedExcinfo owns translation from ExceptionInfo into the established
-# TerminalRepr object graph (traceback entries, locations, summaries, chains).
-# ExceptionInfo.__str__ is a separate, upstream value-conversion contract and
-# must not become an input or dependency of this representation boundary.
 @attr.s
 class FormattedExcinfo:
     """ presenting information about failing Functions and Generators. """
@@ -732,22 +709,6 @@ class FormattedExcinfo:
         return path
 
     def repr_traceback(self, excinfo):
-        # GUID: EXCSTR-005 -- preserve traceback rendering outside direct
-        # pytest.raises context-variable string conversion.
-        # PSEUDOCODE:
-        #   INPUT the existing ExceptionInfo and formatter configuration.
-        #   SELECT the captured traceback; IF filtering is enabled, apply the
-        #       existing traceback filter without changing entry content or order.
-        #   IF the exception is recursive, apply the existing truncation flow and
-        #       retain its explanatory line; OTHERWISE retain no extra line.
-        #   FOR EACH selected entry in order:
-        #       format it with the existing style, source, location, and summary;
-        #       provide exception details only to the final entry as before.
-        #   RETURN the existing ReprTraceback structure with the same entries,
-        #       extra line, and style.
-        #   IF existing filtering or formatting fails, preserve its established
-        #       error propagation; DO NOT consult ExceptionInfo.__str__ or invent
-        #       an alternate traceback representation.
         traceback = excinfo.traceback
         if self.tbfilter:
             traceback = traceback.filter()
@@ -803,28 +764,6 @@ class FormattedExcinfo:
         return traceback, extraline
 
     def repr_excinfo(self, excinfo):
-
-        # GUID: EXCSTR-005 -- preserve exception-chain, source-location, and
-        # traceback-summary content outside direct pytest.raises context str().
-        # PSEUDOCODE:
-        #   INPUT the existing ExceptionInfo and chain-rendering configuration.
-        #   START at the current exception and track identities already visited.
-        #   WHILE an unvisited exception remains:
-        #       build its traceback and crash-location representations through
-        #       the existing paths, or use the established native fallback when
-        #       that exception has no traceback;
-        #       append the representation and its current chain descriptor;
-        #       IF an explicit cause exists and chain rendering is enabled,
-        #           transition to that cause with the direct-cause descriptor;
-        #       ELSE IF an unsuppressed context exists and chaining is enabled,
-        #           transition to that context with the context descriptor;
-        #       ELSE terminate the chain.
-        #   REVERSE the collected links into existing display order and RETURN
-        #       the same ExceptionChainRepr content and structure.
-        #   ON repeated identities, stop as before; ON formatting failure,
-        #       preserve established propagation without substituting the direct
-        #       string value of a pytest.raises context variable.
-
         repr_chain = []
         e = excinfo.value
         descr = None
