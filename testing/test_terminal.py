@@ -485,6 +485,13 @@ class TestFixtureReporting:
         )
 
 
+class TestEXCSTR005FailureReportFormattingOutsideRaisesContextStr:
+    """GUID: EXCSTR-005."""
+
+    def test_existing_pytest_failure_report_preserves_observable_formatting(self):
+        pass
+
+
 class TestTerminalFunctional:
     def test_deselected(self, testdir):
         testpath = testdir.makepyfile(

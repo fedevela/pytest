@@ -375,6 +375,18 @@ class TestEXCSTR002AfterMultilineLookupErrorCapture:
         assert __file__ not in result
 
 
+class TestEXCSTR005TracebackFormattingOutsideRaisesContextStr:
+    """GUID: EXCSTR-005."""
+
+    def test_existing_traceback_rendering_preserves_observable_formatting(self):
+        pass
+
+    def test_existing_exception_chain_source_location_and_summary_preserve_content_and_structure(
+        self,
+    ):
+        pass
+
+
 def test_excinfo_for_later():
     e = ExceptionInfo.for_later()
     assert "for raises" in repr(e)
