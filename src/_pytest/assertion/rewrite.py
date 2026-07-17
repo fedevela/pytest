@@ -657,6 +657,10 @@ class AssertionRewriter(ast.NodeVisitor):
         self.source = source
         self.variables_overwrite: Dict[str, str] = {}
 
+    # Architecture boundary (GUID: ARW-001, ARW-003, ARW-004, ARW-005): this
+    # entrypoint owns module-leading statement classification.  Only the string
+    # result of that classification may cross into is_rewrite_disabled; import
+    # placement and assertion traversal remain downstream consumers.
     def run(self, mod: ast.Module) -> None:
         """Find all assert statements in *mod* and rewrite them."""
         if not mod.body:
@@ -755,6 +759,9 @@ class AssertionRewriter(ast.NodeVisitor):
                 ):
                     nodes.append(field)
 
+    # Marker detection is a leaf predicate over a classified module docstring;
+    # it does not own AST shape inspection (GUID: ARW-001, ARW-003, ARW-004,
+    # ARW-005).
     @staticmethod
     def is_rewrite_disabled(docstring: str) -> bool:
         return "PYTEST_DONT_REWRITE" in docstring
